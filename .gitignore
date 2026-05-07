@@ -1,1 +1,9 @@
 .DS_Store
+
+# Python
+.venv/
+
+# Generated data (large files, not for git)
+data/raw/
+data/frames/
+data/results/
