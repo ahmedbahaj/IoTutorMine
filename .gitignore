@@ -7,3 +7,9 @@
 data/raw/
 data/frames/
 data/results/
+
+# Model weights
+models/*.pt
+models/*.pth
+models/*.bin
+models/*.ckpt
