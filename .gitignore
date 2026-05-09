@@ -16,3 +16,8 @@ models/*.ckpt
 models/moondream2/
 
 uv.lock
+
+# Python build artifacts
+*.egg-info/
+build/
+dist/
