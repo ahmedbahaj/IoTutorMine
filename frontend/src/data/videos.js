@@ -33,15 +33,15 @@ export const videos = [
     youtubeId: "e1FVSpkw6q4",
     components: [
       { name: "Arduino Uno", status: "USED" },
-      { name: "Arduino Board", status: "ALTERNATIVE", alternativeTo: "Arduino Uno" },
+      { name: "Arduino board", status: "ALTERNATIVE", alternativeTo: "Arduino Uno" },
       { name: "Breadboard", status: "USED" },
-      { name: "Jumper Wires", status: "USED" },
-      { name: "USB Cable", status: "USED" },
+      { name: "Jumper wires", status: "USED" },
+      { name: "USB cable", status: "USED" },
       { name: "Blue LED", status: "USED" },
       { name: "Red LED", status: "USED" },
       { name: "Green LED", status: "USED" },
       { name: "220 Ohm Resistor", status: "USED" },
-      { name: "Resistor", status: "ALTERNATIVE", alternativeTo: "220 Ohm Resistor" }
+      { name: "Resistors (different values)", status: "ALTERNATIVE", alternativeTo: "220 Ohm Resistor" }
     ]
   },
   {
@@ -57,13 +57,12 @@ export const videos = [
     description: "Read temperature and humidity with the DHT11 module and an Arduino UNO.",
     youtubeId: "OogldLc9uYc",
     components: [
+      { name: "DHT11", status: "USED" },
       { name: "Arduino Uno", status: "USED" },
       { name: "Arduino Mini", status: "ALTERNATIVE", alternativeTo: "Arduino Uno" },
       { name: "Arduino Micro", status: "ALTERNATIVE", alternativeTo: "Arduino Uno" },
-      { name: "DHT11 Sensor", status: "USED" },
       { name: "Breadboard", status: "USED" },
-      { name: "Jumper Wires", status: "USED" },
-      { name: "USB Cable", status: "USED" }
+      { name: "Jumper Wires", status: "USED" }
     ]
   },
   {
@@ -80,15 +79,14 @@ export const videos = [
     youtubeId: "PxQruKtumvg",
     components: [
       { name: "Elegoo Mega 2560", status: "USED" },
-      { name: "DHT11 Sensor", status: "USED" },
+      { name: "DHT11", status: "USED" },
+      { name: "4-pin DHT11 Sensor", status: "ALTERNATIVE", alternativeTo: "DHT11" },
+      { name: "DHT22", status: "ALTERNATIVE", alternativeTo: "DHT11" },
       { name: "10k Potentiometer", status: "USED" },
-      { name: "10k Ohm Resistor", status: "USED" },
-      { name: "16x2 LCD Module", status: "USED" },
-      { name: "Jumper Wires", status: "USED" },
-      { name: "Breadboard", status: "USED" },
-      { name: "USB Cable", status: "USED" },
-      { name: "4-pin DHT11 Sensor", status: "ALTERNATIVE", alternativeTo: "DHT11 Sensor" },
-      { name: "DHT22 Sensor", status: "ALTERNATIVE", alternativeTo: "DHT11 Sensor" }
+      { name: "10k Ohm Resistor", status: "ALTERNATIVE", alternativeTo: "" },
+      { name: "1602A LCD Module", status: "USED" },
+      { name: "Male to Male Jumper Wires", status: "USED" },
+      { name: "Breadboard", status: "USED" }
     ]
   },
   {
@@ -104,13 +102,14 @@ export const videos = [
     description: "Learn to use a passive infrared (PIR) sensor to add motion detection to your Arduino projects.",
     youtubeId: "3gj_68ywod4",
     components: [
+      { name: "Arduino", status: "USED" },
       { name: "PIR Sensor", status: "USED" },
-      { name: "Arduino Uno", status: "USED" },
+      { name: "Breadboard", status: "USED" },
+      { name: "Male-to-Female Jumper Wires", status: "USED" },
+      { name: "3-wire JST Cable", status: "ALTERNATIVE", alternativeTo: "Male-to-Female Jumper Wires" },
       { name: "LED", status: "USED" },
       { name: "220 Ohm Resistor", status: "USED" },
-      { name: "Breadboard", status: "USED" },
-      { name: "Jumper Wires", status: "USED" },
-      { name: "3-wire JST Cable", status: "ALTERNATIVE", alternativeTo: "Jumper Wires" }
+      { name: "Jumper Wires", status: "USED" }
     ]
   },
   {
@@ -126,13 +125,11 @@ export const videos = [
     description: "Quick 3-minute guide to motion detection using the HC-SR501 PIR sensor with Arduino.",
     youtubeId: "CT4iyc1sFHI",
     components: [
+      { name: "Arduino", status: "USED" },
       { name: "PIR Sensor", status: "USED" },
-      { name: "Arduino Uno", status: "USED" },
       { name: "LED", status: "USED" },
       { name: "220 Ohm Resistor", status: "USED" },
-      { name: "Breadboard", status: "USED" },
-      { name: "Jumper Wires", status: "USED" },
-      { name: "USB Cable", status: "USED" }
+      { name: "Jumper Wires", status: "USED" }
     ]
   },
   {
@@ -148,7 +145,7 @@ export const videos = [
     description: "Learn how to use a Passive Infrared (PIR) sensor with Arduino to detect motion and trigger actions.",
     youtubeId: "giIMy18D2lY",
     components: [
-      { name: "Arduino Uno", status: "USED" },
+      { name: "Arduino Board", status: "USED" },
       { name: "PIR Sensor", status: "USED" },
       { name: "LED", status: "USED" },
       { name: "220 Ohm Resistor", status: "USED" },
@@ -169,14 +166,14 @@ export const videos = [
     description: "How to use a 1602 LCD screen with parallel communication and the Arduino LiquidCrystal Library.",
     youtubeId: "s_-nIgo71_w",
     components: [
-      { name: "16x2 LCD Module", status: "USED" },
+      { name: "1602 LCD Screen", status: "USED" },
       { name: "Arduino Uno", status: "USED" },
-      { name: "Potentiometer", status: "USED" },
-      { name: "220 Ohm Resistor", status: "USED" },
+      { name: "Male Header Pins", status: "USED" },
       { name: "Breadboard", status: "USED" },
       { name: "Jumper Wires", status: "USED" },
-      { name: "Button", status: "USED" },
-      { name: "Male Header Pins", status: "USED" }
+      { name: "Potentiometer", status: "USED" },
+      { name: "220 Ohm Resistor", status: "USED" },
+      { name: "Push Button", status: "USED" }
     ]
   },
   {
@@ -192,12 +189,14 @@ export const videos = [
     description: "Learn how to connect an LCD display to Arduino, walking through the Elegoo Mega 2560 Project Lesson 22.",
     youtubeId: "dpoBwmuE2QE",
     components: [
-      { name: "Elegoo Mega 2560", status: "USED" },
-      { name: "1602A LCD Module", status: "USED" },
-      { name: "10k Potentiometer", status: "USED" },
+      { name: "Arduino Mega 2560", status: "USED" },
+      { name: "Elegoo Mega 2560", status: "ALTERNATIVE", alternativeTo: "Arduino Mega 2560" },
+      { name: "LCD 1602A Module", status: "USED" },
+      { name: "10k Ohm Potentiometer", status: "USED" },
       { name: "Breadboard", status: "USED" },
-      { name: "Jumper Wires", status: "USED" },
-      { name: "USB Cable", status: "USED" }
+      { name: "Male-to-Male Jumper Wires", status: "USED" },
+      { name: "USB Cable", status: "USED" },
+      { name: "USB Printer Cable", status: "ALTERNATIVE", alternativeTo: "USB Cable" }
     ]
   },
   {
@@ -213,12 +212,12 @@ export const videos = [
     description: "Very easy Arduino LCD I2C tutorial for 16x2 and 20x4 displays.",
     youtubeId: "CvqHkXeXN3M",
     components: [
-      { name: "Arduino Uno", status: "USED" },
-      { name: "I2C LCD Interface Module", status: "USED" },
-      { name: "16x2 LCD Module", status: "USED" },
-      { name: "20x4 LCD Screen", status: "ALTERNATIVE", alternativeTo: "16x2 LCD Module" },
-      { name: "Jumper Wires", status: "USED" },
-      { name: "USB Cable", status: "USED" }
+      { name: "Arduino board", status: "USED" },
+      { name: "16 by 2 LCD screen", status: "USED" },
+      { name: "20 by 4 LCD screen", status: "ALTERNATIVE", alternativeTo: "16 by 2 LCD screen" },
+      { name: "i2c converter module", status: "USED" },
+      { name: "Male to female jumper wires", status: "USED" },
+      { name: "USB cable", status: "USED" }
     ]
   },
   {
@@ -235,8 +234,8 @@ export const videos = [
     youtubeId: "diKLjxpRKcU",
     components: [
       { name: "Raspberry Pi 5", status: "USED" },
-      { name: "Ultrasonic Sensor", status: "USED" },
-      { name: "Blue LED", status: "USED" },
+      { name: "HC-SR04", status: "USED" },
+      { name: "LED", status: "USED" },
       { name: "330 Ohm Resistor", status: "USED" },
       { name: "Jumper Wires", status: "USED" },
       { name: "Breadboard", status: "USED" }
@@ -255,10 +254,8 @@ export const videos = [
     description: "How to connect the LCD1602 module to the Raspberry Pi 5 using I2C protocol.",
     youtubeId: "V8J33fvCIUs",
     components: [
-      { name: "16x2 LCD Module", status: "USED" },
-      { name: "I2C LCD Interface Module", status: "USED" },
-      { name: "Raspberry Pi 5", status: "USED" },
-      { name: "USB Cable", status: "USED" },
+      { name: "Raspberry Pi", status: "USED" },
+      { name: "LCD 1602 with I2C Module", status: "USED" },
       { name: "Jumper Wires", status: "USED" }
     ]
   },
@@ -275,13 +272,14 @@ export const videos = [
     description: "How to turn on/off an LED using the GPIO pins on your Raspberry Pi Model B+.",
     youtubeId: "6Hau75Zkpj4",
     components: [
-      { name: "Raspberry Pi 5", status: "USED" },
+      { name: "Raspberry Pi Model B+", status: "USED" },
+      { name: "SD Card", status: "USED" },
       { name: "Breadboard", status: "USED" },
-      { name: "Jumper Wires", status: "USED" },
+      { name: "Female-to-Male Jumper Wires", status: "USED" },
+      { name: "Male-to-Male Jumper Wires", status: "USED" },
       { name: "Green LED", status: "USED" },
       { name: "100 Ohm Resistor", status: "USED" },
-      { name: "50 Ohm Resistor", status: "USED" },
-      { name: "SD Card", status: "USED" }
+      { name: "50 Ohm Resistor", status: "ALTERNATIVE", alternativeTo: "100 Ohm Resistor" }
     ]
   },
   {
@@ -297,12 +295,13 @@ export const videos = [
     description: "How to use the DHT11 or DHT22 Temperature and Humidity sensor with Raspberry Pi.",
     youtubeId: "GsG1OClojOk",
     components: [
-      { name: "Raspberry Pi 5", status: "USED" },
-      { name: "DHT11 Sensor", status: "USED" },
-      { name: "DHT22 Sensor", status: "ALTERNATIVE", alternativeTo: "DHT11 Sensor" },
+      { name: "Raspberry Pi", status: "USED" },
+      { name: "DHT11 Module", status: "USED" },
+      { name: "DHT22", status: "ALTERNATIVE", alternativeTo: "DHT11 Module" },
+      { name: "DHT11 Sensor", status: "ALTERNATIVE", alternativeTo: "DHT11 Module" },
+      { name: "10K Ohm Resistor", status: "ALTERNATIVE", alternativeTo: "DHT11 Module" },
       { name: "Breadboard", status: "USED" },
       { name: "Breakout Cable", status: "USED" },
-      { name: "USB Cable", status: "USED" },
       { name: "Jumper Wires", status: "USED" }
     ]
   },
@@ -319,8 +318,8 @@ export const videos = [
     description: "Guide on how to monitor Humidity & Temperature with Raspberry Pi using DHT11 or DHT22.",
     youtubeId: "iodFalI3q1k",
     components: [
-      { name: "DHT11 Sensor", status: "USED" },
       { name: "Raspberry Pi 3B+", status: "USED" },
+      { name: "DHT11 Sensor", status: "USED" },
       { name: "Jumper Wires", status: "USED" },
       { name: "Power Supply", status: "USED" }
     ]
@@ -338,12 +337,13 @@ export const videos = [
     description: "How to wire a PIR sensor into a breadboard using the Raspberry Pi GPIO pins for motion detection.",
     youtubeId: "Tw0mG4YtsZk",
     components: [
-      { name: "PIR Sensor", status: "USED" },
-      { name: "Green LED", status: "USED" },
-      { name: "Raspberry Pi 5", status: "USED" },
+      { name: "Raspberry Pi", status: "USED" },
+      { name: "PIR Motion Sensor", status: "USED" },
       { name: "Breadboard", status: "USED" },
-      { name: "Jumper Wires", status: "USED" },
-      { name: "Resistor", status: "USED" }
+      { name: "Green LED", status: "USED" },
+      { name: "Resistor", status: "USED" },
+      { name: "Female-to-Male Jumper Wires", status: "USED" },
+      { name: "Male-to-Male Jumper Wires", status: "USED" }
     ]
   },
   {
@@ -359,14 +359,16 @@ export const videos = [
     description: "Set up your own GPIO screen for Raspberry Pi using the Waveshare 3.5 Inch Touch LCD.",
     youtubeId: "vCAGzLGTUk4",
     components: [
-      { name: "3.5 Inch LCD Display", status: "USED" },
+      { name: "Wave Share 3.5 inch LCD", status: "USED" },
+      { name: "IPS Wave Share 3.5 inch LCD", status: "ALTERNATIVE", alternativeTo: "Wave Share 3.5 inch LCD" },
       { name: "Raspberry Pi 4", status: "USED" },
-      { name: "Micro SD Card", status: "USED" },
+      { name: "Earlier Raspberry Pi", status: "ALTERNATIVE", alternativeTo: "Raspberry Pi 4" },
+      { name: "MicroSD Card", status: "USED" },
       { name: "Power Supply", status: "USED" },
+      { name: "HDMI Cord", status: "USED" },
       { name: "Monitor", status: "USED" },
       { name: "Keyboard", status: "USED" },
       { name: "Mouse", status: "USED" },
-      { name: "HDMI Cord", status: "USED" },
       { name: "Stylus", status: "USED" }
     ]
   },
@@ -383,12 +385,14 @@ export const videos = [
     description: "Getting started with using a PiicoDev RFID Module with Raspberry Pi.",
     youtubeId: "rRdC7kj-YHo",
     components: [
-      { name: "Raspberry Pi 4", status: "USED" },
+      { name: "Raspberry Pi 4 Model B", status: "USED" },
+      { name: "Raspberry Pi 3B", status: "ALTERNATIVE", alternativeTo: "Raspberry Pi 4 Model B" },
       { name: "PiicoDev RFID Module", status: "USED" },
       { name: "PiicoDev Adapter for Raspberry Pi", status: "USED" },
       { name: "PiicoDev Cable", status: "USED" },
-      { name: "RFID Tag (NTAG213)", status: "USED" },
-      { name: "RFID Tag (MIFARE classic)", status: "ALTERNATIVE", alternativeTo: "RFID Tag (NTAG213)" }
+      { name: "NTAG213 RFID Tag", status: "USED" },
+      { name: "Mifare Classic Tag", status: "ALTERNATIVE", alternativeTo: "NTAG213 RFID Tag" },
+      { name: "PiicoDev Platform", status: "USED" }
     ]
   },
   {
@@ -406,10 +410,11 @@ export const videos = [
     components: [
       { name: "Raspberry Pi", status: "USED" },
       { name: "RC522 RFID Reader", status: "USED" },
+      { name: "Screen", status: "USED" },
       { name: "RFID Tag", status: "USED" },
-      { name: "Display/Screen", status: "USED" },
-      { name: "Jumper Wires", status: "USED" },
-      { name: "Breadboard", status: "ALTERNATIVE", alternativeTo: "Jumper Wires" }
+      { name: "Female-to-Female Jumper Wires", status: "USED" },
+      { name: "Male-to-Female Jumper Wires", status: "ALTERNATIVE", alternativeTo: "Female-to-Female Jumper Wires" },
+      { name: "Breadboard", status: "ALTERNATIVE", alternativeTo: "Female-to-Female Jumper Wires" }
     ]
   },
   {
@@ -425,9 +430,11 @@ export const videos = [
     description: "Comprehensive tutorial on how to connect and control any servo motor with Raspberry Pi.",
     youtubeId: "g1eMMIUmh6E",
     components: [
-      { name: "Servo Motor", status: "USED" },
       { name: "Raspberry Pi", status: "USED" },
-      { name: "Power Supply", status: "USED" },
+      { name: "270 Degree Servo", status: "USED" },
+      { name: "SG90 Servo", status: "ALTERNATIVE", alternativeTo: "270 Degree Servo" },
+      { name: "External Power Supply", status: "USED" },
+      { name: "5V Smartphone Charger", status: "ALTERNATIVE", alternativeTo: "External Power Supply" },
       { name: "Jumper Wires", status: "USED" }
     ]
   }
