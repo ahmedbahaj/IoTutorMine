@@ -36,14 +36,32 @@
           <button class="extract-notice__close" @click="error = ''" aria-label="Dismiss">×</button>
         </div>
 
-        <div v-if="result.length" class="extract-results">
-          <h3 class="extract-results__title">Extracted Bill of Materials</h3>
-          <ul class="extract-results__list">
-            <li v-for="(component, index) in result" :key="index">
-              {{ component.name }} <span v-if="component.status">({{ component.status }})</span>
-            </li>
-          </ul>
-        </div>
+       <div v-if="result.length" class="extract-results">
+  <h3 class="extract-results__title">Electrical Components</h3>
+
+  <table class="extract-results__table">
+    <thead>
+      <tr>
+        <th>Component</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      <tr v-for="(component, index) in result" :key="index">
+        <td>{{ component.name }}</td>
+        <td>
+          <span
+            class="status-badge"
+            :class="component.status === 'ALTERNATIVE' ? 'status-badge--alt' : 'status-badge--used'"
+          >
+            {{ component.status === 'ALTERNATIVE' ? 'Alternative' : 'Used' }}
+          </span>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
       </section>
 
       <!-- Videos Section -->
@@ -262,12 +280,66 @@ function filterVideos() {
   color: var(--color-text-primary);
 }
 
-.extract-results__list {
-  margin: 0;
-  padding-left: 18px;
+.extract-results {
+  margin-top: var(--space-md);
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.extract-results__title {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  margin-bottom: var(--space-md);
   color: var(--color-text-primary);
 }
 
+.extract-results__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--font-size-sm);
+}
+
+.extract-results__table th {
+  text-align: left;
+  padding: 10px 8px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.extract-results__table td {
+  padding: 10px 8px;
+  color: var(--color-text-primary);
+  border-bottom: 1px solid var(--color-border-light);
+  font-weight: 400;
+}
+
+.extract-results__table tr:last-child td {
+  border-bottom: none;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+}
+
+.status-badge--used {
+  color: var(--color-success);
+  background: #eaf7ee;
+}
+
+.status-badge--alt {
+  color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+}
 .video-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
