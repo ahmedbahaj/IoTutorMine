@@ -35,6 +35,13 @@ function parseId(url) {
   return m ? m[1] : null;
 }
 
+function cleanTranscript(text) {
+  return String(text || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
 async function getTranscript(videoId) {
   const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
     headers: {
@@ -44,7 +51,12 @@ async function getTranscript(videoId) {
   });
 
   const page = await pageRes.text();
-  const m = page.match(/"captionTracks":(\[.*?\])/);
+  const normalized = page
+    .replace(/\\"/g, '"')
+    .replace(/\\u0026/g, "&")
+    .replace(/\\\//g, "/");
+
+  const m = normalized.match(/"captionTracks":(\[.*?\])/);
   if (!m) return null;
 
   let tracks;
@@ -61,17 +73,53 @@ async function getTranscript(videoId) {
     tracks.find(t => t.languageCode === "en") ||
     tracks[0];
 
+  if (!track?.baseUrl) return null;
+
   const transcriptRes = await fetch(track.baseUrl + "&fmt=json3");
   const data = await transcriptRes.json();
 
   const text = (data.events || [])
     .flatMap(ev => (ev.segs || []).map(s => s.utf8 || ""))
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
+    .join(" ");
 
-  return text || null;
+  return cleanTranscript(text);
+}
+
+async function getTranscriptFromSupadata(url, key) {
+  if (!url || !key) return null;
+
+  try {
+    const endpoint = `https://api.supadata.ai/v1/transcript?url=${encodeURIComponent(url)}&lang=en`;
+
+    const res = await fetch(endpoint, {
+      headers: {
+        "x-api-key": key
+      }
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data) return null;
+
+    if (Array.isArray(data.content)) {
+      const text = data.content
+        .map(segment => segment.text || "")
+        .join(" ");
+
+      return cleanTranscript(text);
+    }
+
+    if (typeof data.content === "string") {
+      return cleanTranscript(data.content);
+    }
+
+    if (typeof data.text === "string") {
+      return cleanTranscript(data.text);
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 async function callGemini(transcript, key) {
@@ -118,23 +166,35 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { url } = req.body || {};
+    const { url, transcript } = req.body || {};
     const videoId = parseId(url);
+    let finalTranscript = cleanTranscript(transcript);
 
-    if (!videoId) {
-      return res.status(400).json({ error: "Invalid YouTube URL" });
+    if (!finalTranscript) {
+      if (!videoId) {
+        return res.status(400).json({
+          error: "Provide either a valid YouTube URL or a transcript."
+        });
+      }
+
+      finalTranscript = await getTranscript(videoId);
+
+      if (!finalTranscript) {
+        finalTranscript = await getTranscriptFromSupadata(url, process.env.SUPADATA_KEY);
+      }
+
+      if (!finalTranscript) {
+        return res.status(422).json({
+          error: "No transcript available for this video. You can paste the transcript manually."
+        });
+      }
     }
 
-    const transcript = await getTranscript(videoId);
-
-    if (!transcript) {
-      return res.status(422).json({ error: "No transcript available for this video" });
-    }
-
-    const components = await callGemini(transcript, process.env.GEMINI_KEY);
+    const components = await callGemini(finalTranscript, process.env.GEMINI_KEY);
 
     return res.status(200).json({
-      videoId,
+      videoId: videoId || null,
+      source: transcript ? "manual-transcript" : "youtube-url",
       components
     });
   } catch (e) {
