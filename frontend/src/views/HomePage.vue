@@ -13,17 +13,36 @@
             class="extract-input"
             v-model="youtubeUrl"
             placeholder="https://www.youtube.com/watch?v=..."
+            @keyup.enter="runExtract"
           />
-          <button class="extract-btn" @click="showDevNotice = true">
+          <button class="extract-btn" :disabled="loading" @click="runExtract">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
-            Extract Components
+            {{ loading ? 'Extracting...' : 'Extract Components' }}
           </button>
         </div>
 
-        <div v-if="showDevNotice" class="extract-notice">
+        <div v-if="needsManualTranscript" class="manual-transcript">
+          <p class="home__subtitle">YouTube transcript could not be fetched automatically. Paste the transcript below and try again.</p>
+          <textarea
+            class="extract-input manual-transcript__textarea"
+            v-model="manualTranscript"
+            placeholder="Paste tutorial transcript here..."
+          ></textarea>
+        </div>
+
+        <div v-if="error" class="extract-notice">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          This feature is currently under development. Stay tuned!
-          <button class="extract-notice__close" @click="showDevNotice = false" aria-label="Dismiss">×</button>
+          {{ error }}
+          <button class="extract-notice__close" @click="error = ''" aria-label="Dismiss">×</button>
+        </div>
+
+        <div v-if="result.length" class="extract-results">
+          <h3 class="extract-results__title">Extracted Bill of Materials</h3>
+          <ul class="extract-results__list">
+            <li v-for="(component, index) in result" :key="index">
+              {{ component.name }} <span v-if="component.status">({{ component.status }})</span>
+            </li>
+          </ul>
         </div>
       </section>
 
@@ -53,10 +72,48 @@ import { ref, computed } from 'vue'
 import SearchBar from '../components/SearchBar.vue'
 import VideoCard from '../components/VideoCard.vue'
 import { videos } from '../data/videos.js'
+import { extractComponents } from '../services/extract.js'
 
 const searchQuery = ref('')
 const youtubeUrl = ref('')
-const showDevNotice = ref(false)
+const manualTranscript = ref('')
+const loading = ref(false)
+const error = ref('')
+const needsManualTranscript = ref(false)
+const result = ref([])
+
+async function runExtract() {
+  const url = youtubeUrl.value.trim()
+  const transcript = manualTranscript.value.trim()
+
+  if (!url && !transcript) {
+    error.value = 'Please paste a YouTube URL or a transcript first.'
+    return
+  }
+
+  loading.value = true
+  error.value = ''
+  result.value = []
+
+  try {
+    const data = await extractComponents({ url, transcript })
+    result.value = data.components || []
+    needsManualTranscript.value = false
+
+    if (!result.value.length) {
+      error.value = 'No components found.'
+    }
+  } catch (e) {
+    const message = e.message || 'Extraction failed. Please try again.'
+    error.value = message
+
+    if (message.toLowerCase().includes('transcript')) {
+      needsManualTranscript.value = true
+    }
+  } finally {
+    loading.value = false
+  }
+}
 
 const filteredVideos = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
@@ -148,6 +205,11 @@ function filterVideos() {
   background: var(--color-accent-hover);
 }
 
+.extract-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .extract-notice {
   display: flex;
   align-items: center;
@@ -173,6 +235,37 @@ function filterVideos() {
 
 .extract-notice__close:hover {
   opacity: 0.7;
+}
+
+.manual-transcript {
+  margin-top: var(--space-md);
+}
+
+.manual-transcript__textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+}
+
+.extract-results {
+  margin-top: var(--space-md);
+  padding: 12px 16px;
+  font-size: var(--font-size-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.extract-results__title {
+  font-size: var(--font-size-base);
+  font-weight: 700;
+  margin-bottom: var(--space-sm);
+  color: var(--color-text-primary);
+}
+
+.extract-results__list {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--color-text-primary);
 }
 
 .video-grid {
