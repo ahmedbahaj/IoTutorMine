@@ -6,27 +6,78 @@
       </router-link>
 
       <div class="navbar-links">
-        <router-link to="/" class="nav-link" active-class="nav-link--active">
-          Home
+        <router-link
+          v-for="item in navItems"
+          :key="item.to"
+          :to="item.to"
+          class="nav-link"
+          :class="{ 'nav-link--active': isActive(item) }"
+          active-class=""
+          exact-active-class=""
+        >
+          {{ item.label }}
         </router-link>
       </div>
 
 
-      <button class="navbar-toggle" @click="menuOpen = !menuOpen" aria-label="Toggle menu">
+      <button
+        class="navbar-toggle"
+        @click="menuOpen = !menuOpen"
+        :aria-expanded="menuOpen"
+        aria-controls="navbar-mobile-menu"
+        aria-label="Toggle menu"
+      >
         <svg v-if="!menuOpen" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
       </button>
     </div>
 
-    <div class="navbar-mobile" :class="{ open: menuOpen }" @click="menuOpen = false">
-      <router-link to="/" class="nav-link">Home</router-link>
+    <div
+      id="navbar-mobile-menu"
+      class="navbar-mobile"
+      :class="{ open: menuOpen }"
+      @click="menuOpen = false"
+    >
+      <router-link
+        v-for="item in navItems"
+        :key="item.to"
+        :to="item.to"
+        class="nav-link"
+        :class="{ 'nav-link--active': isActive(item) }"
+        active-class=""
+        exact-active-class=""
+      >
+        {{ item.label }}
+      </router-link>
     </div>
   </nav>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
+
 const menuOpen = ref(false)
+
+const navItems = [
+  { to: '/', label: 'Home', exact: true },
+  { to: '/my-extractions', label: 'My Extractions', exact: false },
+  { to: '/extractions', label: 'All Extractions', exact: false }
+]
+
+const route = useRoute()
+
+// router-link's own active class matches on route records, so a top-level
+// detail route like /my-extractions/:id would not light up /my-extractions.
+// Matching on the path prefix keeps a section highlighted on its detail pages,
+// while `exact` stops Home from matching everything.
+function isActive(item) {
+  const path = route.path
+  return item.exact ? path === item.to : path === item.to || path.startsWith(`${item.to}/`)
+}
+
+// Close the mobile menu after navigating.
+watch(() => route.fullPath, () => { menuOpen.value = false })
 </script>
 
 <style scoped>
@@ -163,6 +214,20 @@ const menuOpen = ref(false)
 
   .navbar-mobile.open {
     display: flex;
+  }
+
+  .navbar-mobile .nav-link {
+    height: auto;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--color-border-light);
+  }
+
+  .navbar-mobile .nav-link:last-child {
+    border-bottom: none;
+  }
+
+  .navbar-mobile .nav-link--active {
+    color: var(--color-accent);
   }
 }
 </style>

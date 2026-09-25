@@ -5,6 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content="IoTutorMine — Discover electrical components used in IoT video tutorials" />
     <title>IoTutorMine</title>
+    <script>
+      // Companion to public/404.html: turn the "/?/route" bounce back into a
+      // real path before Vue Router reads the URL, so deep links and refreshes
+      // work on GitHub Pages without an extra entry in the history stack.
+      (function () {
+        var l = window.location;
+        if (l.search[1] !== '/') return;
+
+        var decoded = l.search
+          .slice(1)
+          .split('&')
+          .map(function (s) { return s.replace(/~and~/g, '&'); })
+          .join('?');
+
+        window.history.replaceState(null, null, l.pathname.slice(0, -1) + decoded + l.hash);
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

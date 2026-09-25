@@ -1,0 +1,10 @@
+# Vercel only needs the serverless functions in ./api.
+# The Vue app is built and hosted separately on GitHub Pages, and nothing under
+# api/ imports from any of these paths.
+
+frontend/
+tests/
+scripts/
+docs/
+supabase/
+.github/
