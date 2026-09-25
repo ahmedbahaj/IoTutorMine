@@ -444,7 +444,7 @@ test('the public projection never leaks internal columns', options, async () => 
     method: 'PATCH', body: { error_message: 'internal detail that must not leak' }
   });
 
-  const row = await store.findPublished(env, id);
+  const row = await store.findPublished(env, id, SPEC_VERSION);
   const serialised = JSON.stringify(row);
 
   assert.doesNotMatch(serialised, /internal detail/);

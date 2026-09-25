@@ -62,7 +62,8 @@ const menuOpen = ref(false)
 const navItems = [
   { to: '/', label: 'Home', exact: true },
   { to: '/my-extractions', label: 'My Extractions', exact: false },
-  { to: '/extractions', label: 'All Extractions', exact: false }
+  { to: '/extractions', label: 'All Extractions', exact: false },
+  { to: '/research', label: 'Research', exact: false }
 ]
 
 const route = useRoute()

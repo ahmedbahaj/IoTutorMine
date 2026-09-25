@@ -43,10 +43,11 @@ const envInt = (name, fallback) => {
  * no timeouts at all, so a slow upstream simply ran until the platform killed
  * the request. Worst case now:
  *
- *   claim 5s + transcript 10s + Supadata fallback 10s + Gemini 30s + persist 5s
+ *   claim + transcript + Supadata fallback + model + persist
  *
- * which stays under 60s. Every value is overridable by environment variable so
- * the budget can be retuned for a different plan without a code change.
+ * rather than by giving each stage an independent constant. See
+ * requestBudgetMs below. Every value is overridable by environment variable so
+ * the budget can be retuned for a different platform without a code change.
  */
 export const LIMITS = {
   maxBodyBytes: 200_000,
@@ -67,7 +68,57 @@ export const LIMITS = {
   waitForPeerMs: 8_000,
   waitPollMs: 1_000,
 
-  geminiTimeoutMs: envInt('GEMINI_TIMEOUT_MS', 30_000),
   transcriptTimeoutMs: envInt('TRANSCRIPT_TIMEOUT_MS', 10_000),
-  storeTimeoutMs: envInt('STORE_TIMEOUT_MS', 5_000)
+  storeTimeoutMs: envInt('STORE_TIMEOUT_MS', 5_000),
+
+  /**
+   * Overall wall-clock budget for one extraction request.
+   *
+   * The model is not given a fixed slice of time. It is given whatever is left
+   * of this budget once the transcript work is done, minus a reserve to persist
+   * the result. A fixed model timeout is the wrong shape: Gemini 3 Flash is a
+   * thinking model whose latency varies with how much it reasons, so a constant
+   * either truncates a legitimately slow run or overruns the platform limit.
+   *
+   * The default sits just under Vercel's 60s function ceiling. Locally there is
+   * no such ceiling - set REQUEST_BUDGET_MS much higher (e.g. 300000) to let a
+   * slow extraction run to completion.
+   */
+  requestBudgetMs: envInt('REQUEST_BUDGET_MS', 55_000),
+
+  /** Held back from the budget so a successful result can still be written. */
+  persistReserveMs: envInt('PERSIST_RESERVE_MS', 6_000),
+
+  /**
+   * The model is never given less than this, even if the budget is nearly
+   * spent - a one-second timeout would fail every time and waste the transcript
+   * work already done.
+   */
+  geminiMinTimeoutMs: envInt('GEMINI_MIN_TIMEOUT_MS', 20_000),
+
+  /** Absolute ceiling, so a huge budget cannot hang a request indefinitely. */
+  geminiMaxTimeoutMs: envInt('GEMINI_MAX_TIMEOUT_MS', 240_000)
 };
+
+/**
+ * How long the model may run, given how much of the budget is already spent.
+ * Returns at least geminiMinTimeoutMs and at most geminiMaxTimeoutMs.
+ *
+ * The four values are read at CALL time rather than captured at module load,
+ * so setting REQUEST_BUDGET_MS (or the others) takes effect regardless of when
+ * the module happened to be imported.
+ */
+export function geminiBudgetMs(elapsedMs, limits = null) {
+  const resolved = limits || {
+    requestBudgetMs: envInt('REQUEST_BUDGET_MS', LIMITS.requestBudgetMs),
+    persistReserveMs: envInt('PERSIST_RESERVE_MS', LIMITS.persistReserveMs),
+    geminiMinTimeoutMs: envInt('GEMINI_MIN_TIMEOUT_MS', LIMITS.geminiMinTimeoutMs),
+    geminiMaxTimeoutMs: envInt('GEMINI_MAX_TIMEOUT_MS', LIMITS.geminiMaxTimeoutMs)
+  };
+
+  const remaining = resolved.requestBudgetMs - Math.max(0, elapsedMs) - resolved.persistReserveMs;
+  return Math.min(
+    resolved.geminiMaxTimeoutMs,
+    Math.max(resolved.geminiMinTimeoutMs, remaining)
+  );
+}

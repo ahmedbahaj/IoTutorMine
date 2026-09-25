@@ -7,12 +7,14 @@ import MyExtractionsPage from './MyExtractionsPage.vue'
 import ExtractionDetailPage from './ExtractionDetailPage.vue'
 import routerConfig from '../router/index.js'
 import { createHistory, history } from '../services/history.js'
+import { resetActiveResults } from '../services/activeResults.js'
 import { listPublicExtractions, getPublicExtraction } from '../services/extract.js'
 
 vi.mock('../services/extract.js', () => ({
   extractComponents: vi.fn(),
   listPublicExtractions: vi.fn(),
   getPublicExtraction: vi.fn(),
+  listActiveExtractions: vi.fn(async () => ({ items: [] })),
   ApiError: class ApiError extends Error {}
 }))
 
@@ -59,6 +61,7 @@ async function mountAt(component, path, props = {}) {
 }
 
 beforeEach(() => {
+  resetActiveResults()
   localStorage.clear()
   vi.mocked(listPublicExtractions).mockReset()
   vi.mocked(getPublicExtraction).mockReset()

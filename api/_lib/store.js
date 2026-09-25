@@ -112,10 +112,11 @@ export async function findReady(env, videoId, specVersion) {
 }
 
 /** A published entry, for the public library detail route. */
-export async function findPublished(env, videoId) {
+export async function findPublished(env, videoId, specVersion) {
   const params = new URLSearchParams({
     select: PUBLIC_COLUMNS,
     video_id: `eq.${videoId}`,
+    spec_version: `eq.${specVersion}`,
     status: "eq.ready",
     publication_status: "eq.published",
     order: "last_success_at.desc",
@@ -127,14 +128,39 @@ export async function findPublished(env, videoId) {
 }
 
 /**
- * Paginated public library listing.
- * `q` matches video title, channel, and component names, case-insensitively.
+ * Published entries for a specific set of video ids, under the current spec.
+ *
+ * This is what lets the catalog pages resolve their active result in one
+ * request instead of one per video.
  */
-export async function listPublished(env, { q = "", limit = 24, offset = 0 } = {}) {
+export async function listPublishedByIds(env, videoIds, specVersion) {
+  const ids = [...new Set((videoIds || []).filter(Boolean))];
+  if (!ids.length) return [];
+
   const params = new URLSearchParams({
     select: PUBLIC_COLUMNS,
     status: "eq.ready",
     publication_status: "eq.published",
+    spec_version: `eq.${specVersion}`,
+    video_id: `in.(${ids.join(",")})`,
+    order: "last_success_at.desc",
+    limit: String(ids.length)
+  });
+
+  const rows = await request(env, `/rest/v1/extractions?${params}`);
+  return Array.isArray(rows) ? rows : [];
+}
+
+/**
+ * Paginated public library listing.
+ * `q` matches video title, channel, and component names, case-insensitively.
+ */
+export async function listPublished(env, { q = "", limit = 24, offset = 0, specVersion } = {}) {
+  const params = new URLSearchParams({
+    select: PUBLIC_COLUMNS,
+    status: "eq.ready",
+    publication_status: "eq.published",
+    ...(specVersion ? { spec_version: `eq.${specVersion}` } : {}),
     order: "last_success_at.desc",
     limit: String(limit),
     offset: String(offset)

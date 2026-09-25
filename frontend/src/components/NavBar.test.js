@@ -4,7 +4,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import NavBar from './NavBar.vue'
 import routerConfig from '../router/index.js'
 
-const EXPECTED = ['Home', 'My Extractions', 'All Extractions']
+const EXPECTED = ['Home', 'My Extractions', 'All Extractions', 'Research']
 
 function makeRouter() {
   // Rebuild from the real route table so the test fails if a route is removed.
@@ -24,13 +24,13 @@ async function mountNav(path = '/') {
 }
 
 describe('NavBar', () => {
-  test('2. shows exactly the three primary navigation items on desktop', async () => {
+  test('2. shows exactly the four primary navigation items on desktop', async () => {
     const { wrapper } = await mountNav()
     const labels = wrapper.findAll('.navbar-links .nav-link').map(l => l.text())
     expect(labels).toEqual(EXPECTED)
   })
 
-  test('20. the same three items are present in the mobile menu', async () => {
+  test('20. the same four items are present in the mobile menu', async () => {
     const { wrapper } = await mountNav()
     const labels = wrapper.findAll('.navbar-mobile .nav-link').map(l => l.text())
     expect(labels).toEqual(EXPECTED)
@@ -66,7 +66,7 @@ describe('NavBar', () => {
   test('every navigation item points at a route that actually resolves', async () => {
     const { router } = await mountNav()
 
-    for (const path of ['/', '/my-extractions', '/extractions']) {
+    for (const path of ['/', '/my-extractions', '/extractions', '/research']) {
       const resolved = router.resolve(path)
       expect(resolved.matched.length, `no route matched ${path}`).toBeGreaterThan(0)
     }
@@ -86,6 +86,7 @@ describe('NavBar', () => {
     expect(await active('/my-extractions/abc')).toEqual(['My Extractions'])
     expect(await active('/extractions')).toEqual(['All Extractions'])
     expect(await active('/extractions/KGwtit2bFyo')).toEqual(['All Extractions'])
+    expect(await active('/research')).toEqual(['Research'])
 
     // The curated catalog pages must not light up any of the three.
     expect(await active('/video/1')).toEqual([])

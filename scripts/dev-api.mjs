@@ -16,6 +16,45 @@
  */
 
 import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * Load local development credentials from a git-ignored file, so keys never
+ * have to be exported by hand or typed into a shell (where they would land in
+ * history). Existing environment variables always win, so CI and the hosted
+ * runtime are unaffected. Values are never logged.
+ */
+function loadLocalEnv(file = path.join(ROOT, '.env.development.local')) {
+  if (!fs.existsSync(file)) return [];
+
+  const loaded = [];
+  for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+
+    const i = trimmed.indexOf('=');
+    if (i <= 0) continue;
+
+    const key = trimmed.slice(0, i).trim();
+    let value = trimmed.slice(i + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    if (!(key in process.env) && value) {
+      process.env[key] = value;
+      loaded.push(key);
+    }
+  }
+  return loaded;
+}
 
 const ROUTES = {
   '/api/extract': () => import('../api/extract.js'),
@@ -91,8 +130,12 @@ export function createApiServer() {
   });
 }
 
-// Standalone mode.
-if (import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}`) {
+// Standalone mode. pathToFileURL is used rather than hand-building a file://
+// string: on Windows the manual form drops a slash (file://C:/... instead of
+// file:///C:/...), so the comparison never matches and the server exits
+// immediately without listening.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const loaded = loadLocalEnv();
   const port = Number(process.env.PORT) || 3001;
 
   createApiServer().listen(port, () => {
@@ -100,8 +143,11 @@ if (import.meta.url === `file://${process.argv[1].replace(/\\/g, '/')}`) {
     console.log(`[dev-api] listening on http://localhost:${port}`);
     console.log(`[dev-api]   POST /api/extract`);
     console.log(`[dev-api]   GET  /api/extractions`);
+    // Only variable NAMES are printed, never values.
+    console.log(`[dev-api] .env.development.local: ${loaded.length ? loaded.join(', ') : 'not found / nothing new'}`);
     console.log(`[dev-api] shared library: ${configured ? 'configured' : 'NOT configured (no caching)'}`);
     console.log(`[dev-api] gemini key:     ${process.env.GEMINI_KEY ? 'set' : 'NOT set'}`);
+    console.log(`[dev-api] supadata key:   ${process.env.SUPADATA_KEY ? 'set' : 'NOT set'}`);
     console.log('');
     console.log('Point the frontend at it with:');
     console.log(`  VITE_API_BASE=http://localhost:${port}/api npm run dev   (in ./frontend)`);

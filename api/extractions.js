@@ -4,7 +4,10 @@
  *   ?limit=24     max 48
  *   ?offset=0
  *
- * GET /api/extractions?videoId=XXXXXXXXXXX -> a single published entry
+ * GET /api/extractions?videoId=XXXXXXXXXXX  -> a single published entry
+ * GET /api/extractions?videoIds=a,b,c        -> published entries for those ids,
+ *                                               used to resolve the active result
+ *                                               for the catalog in one request
  *
  * Read-only and public. Only published, successful rows are exposed, projected
  * through a fixed column list - internal error text, lease state, and review
@@ -15,10 +18,13 @@ import * as store from "./_lib/store.js";
 import { fromRow } from "./_lib/shape.js";
 import { clientKey, parsePositiveInt, setCors } from "./_lib/http.js";
 import { isValidVideoId } from "./_lib/youtube.js";
+import { SPEC_VERSION } from "./_lib/spec.js";
 
 const MAX_LIMIT = 48;
 const DEFAULT_LIMIT = 24;
 const MAX_QUERY_LENGTH = 100;
+/** Enough for the whole research catalog in one call, and bounded. */
+const MAX_BATCH_IDS = 50;
 
 export default async function handler(req, res) {
   setCors(req, res, "GET, OPTIONS");
@@ -51,15 +57,34 @@ export default async function handler(req, res) {
 
   const query = req.query || {};
   const videoId = typeof query.videoId === "string" ? query.videoId : "";
+  const videoIds = typeof query.videoIds === "string" ? query.videoIds : "";
 
   try {
+    // ---- batch lookup --------------------------------------------------
+    if (videoIds) {
+      const ids = [...new Set(videoIds.split(",").map(s => s.trim()).filter(Boolean))]
+        .slice(0, MAX_BATCH_IDS);
+
+      const invalid = ids.filter(id => !isValidVideoId(id));
+      if (invalid.length) {
+        return res.status(400).json({ error: "One or more video ids are invalid." });
+      }
+
+      const rows = await store.listPublishedByIds(env, ids, SPEC_VERSION);
+      return res.status(200).json({
+        configured: true,
+        specVersion: SPEC_VERSION,
+        items: rows.map(row => fromRow(row))
+      });
+    }
+
     // ---- single entry --------------------------------------------------
     if (videoId) {
       if (!isValidVideoId(videoId)) {
         return res.status(400).json({ error: "Invalid video id." });
       }
 
-      const row = await store.findPublished(env, videoId);
+      const row = await store.findPublished(env, videoId, SPEC_VERSION);
       if (!row) return res.status(404).json({ error: "No published extraction for this video." });
 
       return res.status(200).json({ configured: true, item: fromRow(row) });
@@ -72,7 +97,12 @@ export default async function handler(req, res) {
 
     // Fetch one extra row to determine whether another page exists, without
     // paying for an exact count over the whole table.
-    const rows = await store.listPublished(env, { q, limit: limit + 1, offset });
+    const rows = await store.listPublished(env, {
+      q,
+      limit: limit + 1,
+      offset,
+      specVersion: SPEC_VERSION
+    });
     const hasMore = rows.length > limit;
 
     return res.status(200).json({

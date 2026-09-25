@@ -75,6 +75,62 @@ describe('ExtractionProgress', () => {
     expect(wrapper.find('.progress__percent').exists()).toBe(false)
   })
 
+  test('5. a failure removes the bar entirely - no half-filled track is left behind', async () => {
+    const wrapper = mount(ExtractionProgress, { props: { phase: 'running' } })
+
+    await vi.advanceTimersByTimeAsync(8000)
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(true)
+    const midway = Number(wrapper.find('[role="progressbar"]').attributes('aria-valuenow'))
+    expect(midway).toBeGreaterThan(0)
+    expect(midway).toBeLessThan(100)
+
+    await wrapper.setProps({ phase: 'error', errorMessage: 'The model did not respond within 49s.' })
+
+    // The track is gone, so a partially-filled bar cannot read as "still working".
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
+    expect(wrapper.find('.progress__bar').exists()).toBe(false)
+    expect(wrapper.find('.progress').classes()).toContain('progress--error')
+    expect(wrapper.text()).toContain('The model did not respond within 49s.')
+  })
+
+  test('6. the error hint matches the actual failure code', async () => {
+    const hintFor = async errorCode => {
+      const wrapper = mount(ExtractionProgress, {
+        props: { phase: 'error', errorMessage: 'failed', errorCode }
+      })
+      return wrapper.find('.progress__error-hint').text()
+    }
+
+    expect(await hintFor('timeout')).toMatch(/nothing was saved/i)
+    expect(await hintFor('timeout')).toMatch(/trying again/i)
+    expect(await hintFor('provider_error')).toMatch(/not a problem with the video/i)
+    expect(await hintFor('no_transcript')).toMatch(/paste one manually/i)
+    expect(await hintFor('ineligible')).toMatch(/IoT hardware tutorial/i)
+    expect(await hintFor('not_configured')).toMatch(/not configured/i)
+
+    // A timeout must never be described as a transcript problem, or vice versa.
+    expect(await hintFor('timeout')).not.toMatch(/transcript/i)
+    expect(await hintFor('no_transcript')).not.toMatch(/nothing was saved/i)
+  })
+
+  test('5. a long-running request keeps the bar visible and below 100%', async () => {
+    const wrapper = mount(ExtractionProgress, { props: { phase: 'running' } })
+
+    // Well past the old 30s limit that used to abort the request.
+    await vi.advanceTimersByTimeAsync(50_000)
+
+    const bar = wrapper.find('[role="progressbar"]')
+    expect(bar.exists()).toBe(true)
+    expect(Number(bar.attributes('aria-valuenow'))).toBeLessThan(100)
+    // At 50s the copy is "taking longer than usual"; "still processing" begins
+    // later. Either way the indicator must stay active and honest.
+    expect(wrapper.find('.progress__message').text()).toMatch(/longer than usual|still processing/i)
+
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(true)
+    expect(wrapper.find('.progress__message').text()).toMatch(/still processing/i)
+  })
+
   test('the interval is cleared when the phase leaves running and on unmount', async () => {
     const clearSpy = vi.spyOn(globalThis, 'clearInterval')
 

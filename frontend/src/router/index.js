@@ -32,6 +32,14 @@ const routes = [
     props: { mode: 'shared' }
   },
 
+  // Frontend-only informational page: the published method, benchmark and
+  // artifacts. No backend, database or model calls.
+  {
+    path: '/research',
+    name: 'Research',
+    component: () => import('../views/ResearchPage.vue')
+  },
+
   { path: '/:pathMatch(.*)*', redirect: '/' }
 ]
 

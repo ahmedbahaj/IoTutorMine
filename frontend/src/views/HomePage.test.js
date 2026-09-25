@@ -6,12 +6,14 @@ import HomePage from './HomePage.vue'
 import routerConfig from '../router/index.js'
 import { videos } from '../data/videos.js'
 import { STORAGE_KEY, createHistory } from '../services/history.js'
+import { resetActiveResults } from '../services/activeResults.js'
 import { extractComponents } from '../services/extract.js'
 
 vi.mock('../services/extract.js', () => ({
   extractComponents: vi.fn(),
   listPublicExtractions: vi.fn(),
   getPublicExtraction: vi.fn(),
+  listActiveExtractions: vi.fn(async () => ({ items: [] })),
   ApiError: class ApiError extends Error {}
 }))
 
@@ -58,6 +60,7 @@ async function submit(wrapper, url) {
 }
 
 beforeEach(() => {
+  resetActiveResults()
   localStorage.clear()
   vi.mocked(extractComponents).mockReset()
 })

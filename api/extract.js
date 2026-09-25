@@ -15,10 +15,10 @@
  * stateless behaviour: it extracts and returns, with no caching or publication.
  */
 
-import { LIMITS, MODEL, SPEC_VERSION } from "./_lib/spec.js";
+import { LIMITS, MODEL, SPEC_VERSION, geminiBudgetMs } from "./_lib/spec.js";
 import { canonicalUrl, fetchOEmbedMetadata, parseVideoId, thumbnailUrl } from "./_lib/youtube.js";
 import { cleanTranscript, getTranscriptFromSupadata, getTranscriptFromYouTube } from "./_lib/transcript.js";
-import { callGemini } from "./_lib/gemini.js";
+import { GeminiError, callGemini } from "./_lib/gemini.js";
 import { assessPublication, assessRelevance, buildSearchText, validateComponents } from "./_lib/validate.js";
 import * as store from "./_lib/store.js";
 import { fresh, fromRow } from "./_lib/shape.js";
@@ -58,6 +58,9 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ error: "POST only" });
 
   const env = process.env;
+  // Wall clock for this request, so the model can be given whatever is left of
+  // the budget rather than a fixed slice.
+  const startedAt = Date.now();
 
   if (bodyTooLarge(req, LIMITS.maxBodyBytes)) {
     return res.status(413).json({ error: "Request is too large." });
@@ -106,7 +109,9 @@ export default async function handler(req, res) {
   // saved in the user's own history.
   if (manualTranscript) {
     try {
-      const raw = await callGemini(manualTranscript, env.GEMINI_KEY);
+      const raw = await callGemini(manualTranscript, env.GEMINI_KEY, {
+        timeoutMs: geminiBudgetMs(Date.now() - startedAt)
+      });
       const { ok, components, errors } = validateComponents(raw);
 
       if (!ok) return res.status(422).json({ error: errors[0] || "No components were extracted." });
@@ -123,7 +128,10 @@ export default async function handler(req, res) {
         reviewReason: "manual-transcript-unverified"
       }));
     } catch (e) {
-      return res.status(500).json({ error: e?.message || "Extraction failed" });
+      return res.status(e?.code === "timeout" ? 504 : 500).json({
+        error: e?.message || "Extraction failed",
+        errorCode: e?.code || "unknown"
+      });
     }
   }
 
@@ -213,7 +221,9 @@ export default async function handler(req, res) {
       return res.status(422).json({ error: relevance.reason, ineligible: true });
     }
 
-    const raw = await callGemini(transcript, env.GEMINI_KEY);
+    const raw = await callGemini(transcript, env.GEMINI_KEY, {
+      timeoutMs: geminiBudgetMs(Date.now() - startedAt)
+    });
     const { ok, components, errors } = validateComponents(raw);
 
     if (!ok) {
@@ -281,12 +291,40 @@ export default async function handler(req, res) {
     return res.status(200).json(result);
   } catch (e) {
     const message = e?.message || "Extraction failed";
+    const isTimeout = e instanceof GeminiError && e.code === "timeout";
+    const errorCode = e instanceof GeminiError ? e.code : "unknown";
+
+    // A timeout means we abandoned our own model call, not that no result
+    // exists. A peer instance may have finished this same video while we were
+    // waiting. Check once before reporting failure, so the user is served a
+    // real result instead of being invited to spend another model call on a
+    // video that is already extracted.
+    if (shared && isTimeout) {
+      const row = await store.findReady(env, videoId, SPEC_VERSION).catch(() => null);
+      if (row) {
+        if (claimed) {
+          await store
+            .failExtraction(env, { videoId, specVersion: SPEC_VERSION, message })
+            .catch(() => {});
+        }
+        return res.status(200).json(fromRow(row, { cacheHit: "shared-after-timeout" }));
+      }
+    }
 
     if (claimed) {
-      // Releases the lease. A previously successful result is preserved.
+      // Releases the lease. A previously successful result is preserved: the
+      // SQL refuses to downgrade a row that already holds one.
       await store.failExtraction(env, { videoId, specVersion: SPEC_VERSION, message }).catch(() => {});
     }
 
-    return res.status(500).json({ error: message });
+    // 504 distinguishes "we ran out of time" from "something went wrong",
+    // which the client needs in order to offer a sensible next step.
+    return res.status(isTimeout ? 504 : 500).json({
+      error: isTimeout
+        ? `${message} The extraction was not completed — you can try again.`
+        : message,
+      errorCode,
+      videoId
+    });
   }
 }

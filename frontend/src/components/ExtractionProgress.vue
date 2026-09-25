@@ -11,7 +11,10 @@
       </span>
     </div>
 
+    <!-- On failure the track is removed entirely. A half-filled bar left on
+         screen reads as "still working", which is exactly the wrong signal. -->
     <div
+      v-if="phase !== 'error'"
       class="progress__track"
       role="progressbar"
       aria-valuemin="0"
@@ -21,6 +24,10 @@
     >
       <div class="progress__bar" :style="{ width: `${percent}%` }"></div>
     </div>
+
+    <p v-else class="progress__error-hint">
+      {{ errorHint }}
+    </p>
 
     <!-- Announced to assistive technology without stealing focus. -->
     <p class="visually-hidden" role="status" aria-live="polite">{{ label }}</p>
@@ -35,7 +42,9 @@ const props = defineProps({
   /** 'idle' | 'running' | 'done' | 'error' */
   phase: { type: String, default: 'idle' },
   errorMessage: { type: String, default: '' },
-  doneMessage: { type: String, default: 'Extraction complete.' }
+  doneMessage: { type: String, default: 'Extraction complete.' },
+  /** Machine-readable reason, so the hint can match the real failure. */
+  errorCode: { type: String, default: '' }
 })
 
 const percent = ref(0)
@@ -87,6 +96,24 @@ const displayMessage = computed(() => {
   if (props.phase === 'error') return props.errorMessage || 'Extraction failed.'
   if (props.phase === 'done') return props.doneMessage
   return progressMessage(elapsed.value)
+})
+
+/** A next step that matches the actual failure, not a generic apology. */
+const errorHint = computed(() => {
+  switch (props.errorCode) {
+    case 'timeout':
+      return 'Nothing was saved. Trying again usually works — the result is reused if another request already finished it.'
+    case 'provider_error':
+      return 'The extraction service rejected the request. This is not a problem with the video.'
+    case 'not_configured':
+      return 'The extraction service is not configured on this deployment.'
+    case 'no_transcript':
+      return 'No transcript could be retrieved. You can paste one manually above.'
+    case 'ineligible':
+      return 'This video does not appear to be an IoT hardware tutorial.'
+    default:
+      return 'No changes were saved.'
+  }
 })
 
 const label = computed(() => {
@@ -166,8 +193,11 @@ const label = computed(() => {
   background: var(--color-success);
 }
 
-.progress--error .progress__bar {
-  background: var(--color-warning-border);
+.progress__error-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-warning-text);
+  opacity: 0.85;
+  line-height: 1.6;
 }
 
 .visually-hidden {

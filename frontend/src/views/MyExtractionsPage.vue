@@ -46,15 +46,27 @@
 import { computed, onMounted, ref } from 'vue'
 import ExtractionCard from '../components/ExtractionCard.vue'
 import { history } from '../services/history.js'
+import { ensureActiveResults, resolveHistoryEntry } from '../services/activeResults.js'
 
-const entries = ref([])
 const query = ref('')
 
+const rawEntries = ref([])
+
 function load() {
-  entries.value = history.list()
+  rawEntries.value = history.list()
 }
 
-onMounted(load)
+/**
+ * Cards show the ACTIVE component list, so My Extractions cannot disagree with
+ * Home or All Extractions about the same video.
+ */
+const entries = computed(() => rawEntries.value.map(resolveHistoryEntry))
+
+onMounted(async () => {
+  load()
+  const ids = rawEntries.value.map(e => e.videoId).filter(Boolean)
+  if (ids.length) await ensureActiveResults(ids)
+})
 
 const filtered = computed(() => {
   const q = query.value.trim().toLowerCase()

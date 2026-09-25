@@ -42,6 +42,12 @@ export async function getTranscriptFromYouTube(videoId, { timeoutMs = 15000, fet
 
   const t = withTimeout(timeoutMs);
 
+  // Duration is held outside the caption lookup on purpose. YouTube's timedtext
+  // endpoint often answers 200 with an empty body, which makes the caption path
+  // throw; a caption failure must not discard metadata we have already read
+  // from the watch page.
+  let durationSeconds = null;
+
   try {
     const pageRes = await fetchImpl(canonicalUrl(videoId), {
       signal: t.signal,
@@ -52,7 +58,7 @@ export async function getTranscriptFromYouTube(videoId, { timeoutMs = 15000, fet
     });
 
     const page = await pageRes.text();
-    const durationSeconds = parseDurationSeconds(page);
+    durationSeconds = parseDurationSeconds(page);
 
     const normalized = page
       .replace(/\\"/g, '"')
@@ -92,7 +98,8 @@ export async function getTranscriptFromYouTube(videoId, { timeoutMs = 15000, fet
     captionUrl.searchParams.set("fmt", "json3");
 
     const transcriptRes = await fetchImpl(captionUrl.toString(), { signal: t.signal });
-    const data = await transcriptRes.json();
+    // An empty 200 is the common case now, and it is not valid JSON.
+    const data = await transcriptRes.json().catch(() => null);
 
     const text = (data?.events || [])
       .flatMap(ev => (ev.segs || []).map(s => s.utf8 || ""))
@@ -101,7 +108,7 @@ export async function getTranscriptFromYouTube(videoId, { timeoutMs = 15000, fet
     const cleaned = cleanTranscript(text);
     return { text: cleaned || null, durationSeconds };
   } catch {
-    return { text: null, durationSeconds: null };
+    return { text: null, durationSeconds };
   } finally {
     t.done();
   }

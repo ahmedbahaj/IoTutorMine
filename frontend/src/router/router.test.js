@@ -26,7 +26,8 @@ describe('routes', () => {
       ['/my-extractions', 'MyExtractions'],
       ['/my-extractions/abc-123', 'MyExtractionDetail'],
       ['/extractions', 'AllExtractions'],
-      ['/extractions/KGwtit2bFyo', 'SharedExtractionDetail']
+      ['/extractions/KGwtit2bFyo', 'SharedExtractionDetail'],
+      ['/research', 'Research']
     ]
 
     for (const [path, name] of cases) {
@@ -113,6 +114,12 @@ describe('21. GitHub Pages SPA fallback', () => {
     expect(restored).toBe('/IoTutorMine/extractions/KGwtit2bFyo')
     expect(router.resolve(restored.replace('/IoTutorMine', '')).name)
       .toBe('SharedExtractionDetail')
+  })
+
+  test('the Research route survives a hard refresh', () => {
+    const { restored } = roundTrip('/IoTutorMine/research')
+    expect(restored).toBe('/IoTutorMine/research')
+    expect(router.resolve('/research').name).toBe('Research')
   })
 
   test('an existing catalog deep link also survives', () => {

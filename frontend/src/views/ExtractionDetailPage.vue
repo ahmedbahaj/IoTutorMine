@@ -84,6 +84,13 @@
             Bill of Materials
           </h2>
           <ComponentsTable :components="extraction.components" />
+
+          <p v-if="extraction.supersededByShared" class="detail__superseded">
+            Showing the latest AI extraction for this video. Your own run on
+            {{ formatDate(extraction.historicalExtractedAt) }} recorded
+            {{ extraction.historicalComponents.length }} components and is kept in your history.
+          </p>
+
           <p class="detail__disclaimer">
             Automatically extracted from the tutorial transcript. Not independently verified.
           </p>
@@ -100,6 +107,7 @@ import ComponentsTable from '../components/ComponentsTable.vue'
 import { history } from '../services/history.js'
 import { getPublicExtraction } from '../services/extract.js'
 import { canonicalUrl, formatDuration } from '../services/youtube.js'
+import { ensureActiveResults, resolveHistoryEntry } from '../services/activeResults.js'
 
 const props = defineProps({
   /** 'local' reads this browser's history; 'shared' reads the public library. */
@@ -132,7 +140,12 @@ async function load() {
       error.value = 'This saved extraction is no longer in this browser’s history.'
       return
     }
-    extraction.value = entry
+
+    // Show the active result by default. A read-only lookup, so opening a saved
+    // entry never costs a model call; the user's own record is kept intact and
+    // surfaced separately when it has been superseded.
+    if (entry.videoId) await ensureActiveResults([entry.videoId])
+    extraction.value = resolveHistoryEntry(entry)
     return
   }
 
@@ -179,6 +192,12 @@ const extractedOn = computed(() => {
   const d = new Date(raw)
   return Number.isNaN(d.getTime()) ? null : d.toLocaleString()
 })
+
+function formatDate(raw) {
+  if (!raw) return 'an earlier date'
+  const d = new Date(raw)
+  return Number.isNaN(d.getTime()) ? 'an earlier date' : d.toLocaleDateString()
+}
 
 const usedCount = computed(
   () => (extraction.value?.components || []).filter(c => c.status === 'USED').length
@@ -305,6 +324,16 @@ const usedCount = computed(
   font-weight: 700;
   color: var(--color-text-primary);
   margin-bottom: var(--space-md);
+}
+
+.detail__superseded {
+  margin-top: var(--space-md);
+  padding: 8px 12px;
+  font-size: var(--font-size-xs);
+  line-height: 1.6;
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  border-radius: var(--radius-sm);
 }
 
 .detail__disclaimer {

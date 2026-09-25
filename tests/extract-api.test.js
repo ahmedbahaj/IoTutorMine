@@ -567,6 +567,92 @@ test('a single published entry is retrievable by video id, and bad ids are rejec
   });
 });
 
+test('the batch lookup resolves many videos in one request', async () => {
+  const db = createDb();
+  const ids = ['KGwtit2bFyo', 'OogldLc9uYc', 'e1FVSpkw6q4'];
+
+  for (const id of ids) {
+    db.seed({
+      video_id: id,
+      spec_version: SPEC_VERSION,
+      canonical_url: `https://www.youtube.com/watch?v=${id}`,
+      title: `Video ${id}`,
+      components: [{ name: 'Arduino Uno', status: 'USED' }],
+      search_text: 'arduino'
+    });
+  }
+
+  // Present but not published: must not be returned as active.
+  db.seed({
+    video_id: 'diKLjxpRKcU',
+    spec_version: SPEC_VERSION,
+    canonical_url: 'https://www.youtube.com/watch?v=diKLjxpRKcU',
+    title: 'Hidden',
+    publication_status: 'hidden',
+    search_text: 'hidden'
+  });
+
+  await withWorld({ db }, async () => {
+    const res = await get({ videoIds: [...ids, 'diKLjxpRKcU'].join(',') });
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.specVersion, SPEC_VERSION);
+    assert.equal(res.body.items.length, 3, 'only the published rows come back');
+
+    const returned = res.body.items.map(i => i.videoId).sort();
+    assert.deepEqual(returned, [...ids].sort());
+  });
+});
+
+test('the batch lookup only returns rows for the current spec version', async () => {
+  const db = createDb();
+
+  db.seed({
+    video_id: 'KGwtit2bFyo',
+    spec_version: 'v-some-older-spec',
+    canonical_url: 'https://www.youtube.com/watch?v=KGwtit2bFyo',
+    title: 'Old spec result',
+    components: [{ name: 'Old', status: 'USED' }],
+    search_text: 'old'
+  });
+
+  await withWorld({ db }, async () => {
+    const res = await get({ videoIds: 'KGwtit2bFyo' });
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body.items.length, 0, 'an incompatible spec must not become active');
+  });
+});
+
+test('the batch lookup rejects malformed ids and is bounded', async () => {
+  await withWorld({}, async () => {
+    const bad = await get({ videoIds: 'KGwtit2bFyo,../../etc/passwd' });
+    assert.equal(bad.statusCode, 400);
+
+    // Far more ids than the cap; must not error, just clamp.
+    const many = Array.from({ length: 200 }, (_, i) => `vid${String(i).padStart(8, '0')}`).join(',');
+    const ok = await get({ videoIds: many });
+    assert.equal(ok.statusCode, 200);
+    assert.ok(Array.isArray(ok.body.items));
+  });
+});
+
+test('the batch lookup never triggers an extraction', async () => {
+  const db = createDb();
+  db.seed({
+    video_id: 'KGwtit2bFyo',
+    spec_version: SPEC_VERSION,
+    canonical_url: 'https://www.youtube.com/watch?v=KGwtit2bFyo',
+    title: 'Ultrasonic',
+    components: [{ name: 'Arduino Uno', status: 'USED' }],
+    search_text: 'ultrasonic'
+  });
+
+  await withWorld({ db }, async ({ counters }) => {
+    await get({ videoIds: 'KGwtit2bFyo' });
+    assert.equal(counters.gemini, 0, 'resolving the UI must never cost a model call');
+  });
+});
+
 test('the public library reports itself as unconfigured rather than erroring out', async () => {
   const res = mockRes();
   delete process.env.SUPABASE_URL;

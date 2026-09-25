@@ -220,6 +220,8 @@ export function installWorld({
     { name: 'DHT22', status: 'ALTERNATIVE', alternativeTo: 'DHT11' }
   ],
   geminiFails = false,
+  /** Simulated model latency, so slow-path behaviour is testable without quota. */
+  geminiDelayMs = 0,
   supadataText = null,
   onGemini
 } = {}) {
@@ -278,6 +280,27 @@ export function installWorld({
     if (url.hostname === 'generativelanguage.googleapis.com') {
       counters.gemini++;
       if (onGemini) onGemini(counters.gemini);
+
+      // Stand in for a slow thinking phase. Respects the caller's AbortSignal,
+      // exactly as a real fetch would, so timeout handling is genuinely exercised.
+      if (geminiDelayMs > 0) {
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(resolve, geminiDelayMs);
+          const signal = init?.signal;
+          if (signal) {
+            if (signal.aborted) {
+              clearTimeout(timer);
+              reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+              return;
+            }
+            signal.addEventListener('abort', () => {
+              clearTimeout(timer);
+              reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+            }, { once: true });
+          }
+        });
+      }
+
       if (geminiFails) return json({ error: { message: 'Gemini quota exceeded' } }, 429);
       return json({
         candidates: [

@@ -69,35 +69,17 @@
         <h2 class="detail__section-title">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2" ry="2"/><rect x="9" y="9" width="6" height="6"/><line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/><line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/><line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/><line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/></svg>
           Electrical Components
+          <span class="detail__source" :class="`detail__source--${video.activeSource}`">
+            {{ video.activeSourceLabel }}
+          </span>
         </h2>
-        <div class="components-table-wrap">
-          <table class="components-table">
-            <thead>
-              <tr>
-                <th>Component</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <template v-for="comp in video.components.filter(c => c.status === 'USED')" :key="comp.name">
-                <tr>
-                  <td>{{ comp.name }}</td>
-                  <td><span class="status-badge status-badge--used">Used</span></td>
-                </tr>
-                <tr
-                  v-for="alt in video.components.filter(c => c.status === 'ALTERNATIVE' && c.alternativeTo === comp.name)"
-                  :key="alt.name"
-                  class="alt-row"
-                >
-                  <td>
-                    <span class="alt-branch">↳</span> {{ alt.name }}
-                  </td>
-                  <td><span class="status-badge status-badge--alt">Alternative</span></td>
-                </tr>
-              </template>
-            </tbody>
-          </table>
-        </div>
+        <ComponentsTable :components="video.components" />
+
+        <p v-if="video.hasNewerExtraction" class="detail__source-note">
+          This list comes from the most recent AI extraction for this video
+          ({{ video.activeModel || 'model' }}). The original catalog result recorded
+          {{ video.catalogComponents.length }} components and is retained as research data.
+        </p>
       </div>
 
 
@@ -116,15 +98,58 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { videos } from '../data/videos.js'
+import ComponentsTable from '../components/ComponentsTable.vue'
+import { ensureActiveResults, resolveCatalogVideo } from '../services/activeResults.js'
 
 const route = useRoute()
-const video = computed(() => videos.find(v => v.id === Number(route.params.id)))
+
+const catalogVideo = computed(() => videos.find(v => v.id === Number(route.params.id)))
+
+/**
+ * The component table shows the ACTIVE result: the latest published shared
+ * extraction when one exists, otherwise the original catalog result. The
+ * catalog entry itself is never modified.
+ */
+const video = computed(() =>
+  catalogVideo.value ? resolveCatalogVideo(catalogVideo.value) : null
+)
+
+// Read-only lookup; viewing a page never triggers an extraction.
+onMounted(() => {
+  if (catalogVideo.value?.youtubeId) ensureActiveResults([catalogVideo.value.youtubeId])
+})
 </script>
 
 <style scoped>
+.detail__source {
+  margin-left: auto;
+  padding: 3px 10px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  border-radius: 100px;
+  white-space: nowrap;
+}
+
+.detail__source--shared {
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+}
+
+.detail__source--catalog {
+  color: var(--color-badge-text);
+  background: var(--color-badge-bg);
+}
+
+.detail__source-note {
+  margin-top: var(--space-md);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
 .detail {
   flex: 1;
   padding: var(--space-lg) 0 var(--space-2xl);

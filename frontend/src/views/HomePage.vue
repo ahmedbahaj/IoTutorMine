@@ -36,6 +36,7 @@
         <ExtractionProgress
           :phase="phase"
           :error-message="error"
+          :error-code="errorCode"
           :done-message="doneMessage"
         />
 
@@ -104,7 +105,7 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import SearchBar from '../components/SearchBar.vue'
 import VideoCard from '../components/VideoCard.vue'
 import ComponentsTable from '../components/ComponentsTable.vue'
@@ -113,6 +114,12 @@ import { videos } from '../data/videos.js'
 import { extractComponents } from '../services/extract.js'
 import { history } from '../services/history.js'
 import { parseVideoId } from '../services/youtube.js'
+import {
+  activeFor,
+  ensureActiveResults,
+  resolveCatalog,
+  setActiveResult
+} from '../services/activeResults.js'
 
 /** How many times to re-poll when another user is already extracting the same video. */
 const PROCESSING_RETRIES = 3
@@ -123,6 +130,7 @@ const youtubeUrl = ref('')
 const manualTranscript = ref('')
 const loading = ref(false)
 const error = ref('')
+const errorCode = ref('')
 const needsManualTranscript = ref(false)
 const result = ref(null)
 const savedId = ref('')
@@ -141,6 +149,7 @@ const doneMessage = computed(() => {
 
 function reset() {
   error.value = ''
+  errorCode.value = ''
   result.value = null
   savedId.value = ''
   reuseNotice.value = ''
@@ -189,7 +198,19 @@ async function runExtract({ force = false } = {}) {
   // Step 3 of the lookup order: reuse this browser's own history immediately,
   // with no network call at all. An explicit Re-extract skips this.
   if (!force && videoId) {
+    // A newer shared extraction always wins over an older local copy, so the
+    // form cannot reintroduce a stale result that other pages have moved past.
+    const shared = activeFor(videoId)
     const local = history.findByVideoId(videoId)
+
+    if (shared && (!local || Date.parse(shared.extractedAt || 0) > Date.parse(local.extractedAt || 0))) {
+      saveResult(shared, url)
+      applyResult(shared, {
+        notice: 'Showing the latest shared extraction for this video. The model was not called again.'
+      })
+      return
+    }
+
     if (local) {
       savedId.value = local.id
       applyResult(local, {
@@ -237,6 +258,9 @@ async function runExtract({ force = false } = {}) {
     }
 
     saveResult(data, url)
+    // Promote it to the active result so Home cards, detail pages and All
+    // Extractions all update in place.
+    setActiveResult(data)
     applyResult(data, {
       notice: data.cached
         ? 'Loaded from the shared extraction library — the model was not called again.'
@@ -246,6 +270,7 @@ async function runExtract({ force = false } = {}) {
     if (e?.name === 'AbortError') return
 
     error.value = e?.message || 'Extraction failed. Please try again.'
+    errorCode.value = e?.errorCode || ''
     phase.value = 'error'
 
     // Preserve the existing manual-transcript fallback behaviour.
@@ -262,15 +287,29 @@ onBeforeUnmount(() => {
   if (controller) controller.abort()
 })
 
+/**
+ * The catalog with each entry resolved against the shared library. The original
+ * `videos` import is never mutated - this produces new objects - so the research
+ * data stays intact while the UI shows the active result.
+ */
+const resolvedVideos = computed(() => resolveCatalog(videos))
+
 const filteredVideos = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
-  if (!q) return videos
-  return videos.filter(v =>
+  if (!q) return resolvedVideos.value
+  // Search indexes the ACTIVE components, so a part found only by a newer
+  // extraction is still discoverable.
+  return resolvedVideos.value.filter(v =>
     v.title.toLowerCase().includes(q) ||
     v.tags.some(t => t.toLowerCase().includes(q)) ||
     v.components.some(c => c.name.toLowerCase().includes(q)) ||
     v.creator.toLowerCase().includes(q)
   )
+})
+
+// One batched, read-only lookup for the whole catalog.
+onMounted(() => {
+  ensureActiveResults(videos.map(v => v.youtubeId))
 })
 
 function filterVideos() {
