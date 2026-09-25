@@ -13,9 +13,10 @@
             class="extract-input"
             v-model="youtubeUrl"
             placeholder="https://www.youtube.com/watch?v=..."
-            @keyup.enter="runExtract"
+            :disabled="loading"
+            @keyup.enter="runExtract()"
           />
-          <button class="extract-btn" :disabled="loading" @click="runExtract">
+          <button class="extract-btn" :disabled="loading" @click="runExtract()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
             {{ loading ? 'Extracting...' : 'Extract Components' }}
           </button>
@@ -26,42 +27,60 @@
           <textarea
             class="extract-input manual-transcript__textarea"
             v-model="manualTranscript"
+            :disabled="loading"
             placeholder="Paste tutorial transcript here..."
           ></textarea>
         </div>
 
-        <div v-if="error" class="extract-notice">
+        <!-- Progress / completion / error feedback -->
+        <ExtractionProgress
+          :phase="phase"
+          :error-message="error"
+          :error-code="errorCode"
+          :done-message="doneMessage"
+        />
+
+        <div v-if="error && phase !== 'error'" class="extract-notice">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
           {{ error }}
           <button class="extract-notice__close" @click="error = ''" aria-label="Dismiss">×</button>
         </div>
 
-       <div v-if="result.length" class="extract-results">
-  <h3 class="extract-results__title">Electrical Components</h3>
+        <div v-if="result" class="extract-results">
+          <div class="extract-results__header">
+            <h3 class="extract-results__title">
+              {{ result.title || 'Electrical Components' }}
+            </h3>
+            <button
+              v-if="result.videoId"
+              class="btn btn--ghost"
+              :disabled="loading"
+              @click="runExtract({ force: true })"
+              title="Run the model again instead of reusing the saved result"
+            >
+              Re-extract
+            </button>
+          </div>
 
-  <table class="extract-results__table">
-    <thead>
-      <tr>
-        <th>Component</th>
-        <th>Status</th>
-      </tr>
-    </thead>
+          <p v-if="reuseNotice" class="extract-results__note">
+            {{ reuseNotice }}
+          </p>
 
-    <tbody>
-      <tr v-for="(component, index) in result" :key="index">
-        <td>{{ component.name }}</td>
-        <td>
-          <span
-            class="status-badge"
-            :class="component.status === 'ALTERNATIVE' ? 'status-badge--alt' : 'status-badge--used'"
-          >
-            {{ component.status === 'ALTERNATIVE' ? 'Alternative' : 'Used' }}
-          </span>
-        </td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+          <ComponentsTable :components="result.components" />
+
+          <div class="extract-results__footer">
+            <router-link v-if="savedId" :to="`/my-extractions/${savedId}`" class="extract-results__link">
+              Open saved result →
+            </router-link>
+            <router-link
+              v-if="result.published && result.videoId"
+              :to="`/extractions/${result.videoId}`"
+              class="extract-results__link"
+            >
+              View in All Extractions →
+            </router-link>
+          </div>
+        </div>
       </section>
 
       <!-- Videos Section -->
@@ -86,62 +105,211 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import SearchBar from '../components/SearchBar.vue'
 import VideoCard from '../components/VideoCard.vue'
+import ComponentsTable from '../components/ComponentsTable.vue'
+import ExtractionProgress from '../components/ExtractionProgress.vue'
 import { videos } from '../data/videos.js'
 import { extractComponents } from '../services/extract.js'
+import { history } from '../services/history.js'
+import { parseVideoId } from '../services/youtube.js'
+import {
+  activeFor,
+  ensureActiveResults,
+  resolveCatalog,
+  setActiveResult
+} from '../services/activeResults.js'
+
+/** How many times to re-poll when another user is already extracting the same video. */
+const PROCESSING_RETRIES = 3
+const PROCESSING_RETRY_MS = 4000
 
 const searchQuery = ref('')
 const youtubeUrl = ref('')
 const manualTranscript = ref('')
 const loading = ref(false)
 const error = ref('')
+const errorCode = ref('')
 const needsManualTranscript = ref(false)
-const result = ref([])
+const result = ref(null)
+const savedId = ref('')
+const reuseNotice = ref('')
+const phase = ref('idle') // 'idle' | 'running' | 'done' | 'error'
 
-async function runExtract() {
+let controller = null
+
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+const doneMessage = computed(() => {
+  if (!result.value) return 'Extraction complete.'
+  const n = result.value.components.length
+  return `Extraction complete — ${n} component${n === 1 ? '' : 's'} found.`
+})
+
+function reset() {
+  error.value = ''
+  errorCode.value = ''
+  result.value = null
+  savedId.value = ''
+  reuseNotice.value = ''
+}
+
+function saveResult(data, originalUrl) {
+  try {
+    const record = history.save(data, { originalUrl })
+    savedId.value = record.id
+  } catch {
+    // History is a convenience: never let a storage problem break extraction.
+    savedId.value = ''
+  }
+}
+
+function applyResult(data, { notice = '' } = {}) {
+  result.value = data
+  reuseNotice.value = notice
+  phase.value = 'done'
+  needsManualTranscript.value = false
+}
+
+async function runExtract({ force = false } = {}) {
+  // Guard against double submission from Enter + click.
+  if (loading.value) return
+
   const url = youtubeUrl.value.trim()
   const transcript = manualTranscript.value.trim()
 
   if (!url && !transcript) {
     error.value = 'Please paste a YouTube URL or a transcript first.'
+    phase.value = 'idle'
     return
   }
 
+  const videoId = transcript ? null : parseVideoId(url)
+
+  if (!transcript && !videoId) {
+    error.value = 'That does not look like a supported YouTube video link.'
+    phase.value = 'idle'
+    return
+  }
+
+  reset()
+
+  // Step 3 of the lookup order: reuse this browser's own history immediately,
+  // with no network call at all. An explicit Re-extract skips this.
+  if (!force && videoId) {
+    // A newer shared extraction always wins over an older local copy, so the
+    // form cannot reintroduce a stale result that other pages have moved past.
+    const shared = activeFor(videoId)
+    const local = history.findByVideoId(videoId)
+
+    if (shared && (!local || Date.parse(shared.extractedAt || 0) > Date.parse(local.extractedAt || 0))) {
+      saveResult(shared, url)
+      applyResult(shared, {
+        notice: 'Showing the latest shared extraction for this video. The model was not called again.'
+      })
+      return
+    }
+
+    if (local) {
+      savedId.value = local.id
+      applyResult(local, {
+        notice: 'Reused a result already saved in this browser. Use Re-extract to run the model again.'
+      })
+      return
+    }
+  }
+
   loading.value = true
-  error.value = ''
-  result.value = []
+  phase.value = 'running'
+
+  controller = new AbortController()
+  const signal = controller.signal
 
   try {
-    const data = await extractComponents({ url, transcript })
-    result.value = data.components || []
-    needsManualTranscript.value = false
+    let data = null
 
-    if (!result.value.length) {
-      error.value = 'No components found.'
+    for (let attempt = 0; attempt <= PROCESSING_RETRIES; attempt++) {
+      const response = await extractComponents({
+        url,
+        transcript,
+        force: force && attempt === 0,
+        signal
+      })
+
+      // Another request is extracting this same video right now; keep the
+      // progress indicator running and check back shortly.
+      if (response.processing === true) {
+        if (attempt === PROCESSING_RETRIES) {
+          throw new Error('This video is still being processed. Please try again in a moment.')
+        }
+        await sleep(PROCESSING_RETRY_MS)
+        continue
+      }
+
+      data = response
+      break
     }
-  } catch (e) {
-    const message = e.message || 'Extraction failed. Please try again.'
-    error.value = message
 
-    if (message.toLowerCase().includes('transcript')) {
+    if (!data) throw new Error('Extraction failed. Please try again.')
+
+    if (!data.components || !data.components.length) {
+      throw new Error('No components were extracted from this video.')
+    }
+
+    saveResult(data, url)
+    // Promote it to the active result so Home cards, detail pages and All
+    // Extractions all update in place.
+    setActiveResult(data)
+    applyResult(data, {
+      notice: data.cached
+        ? 'Loaded from the shared extraction library — the model was not called again.'
+        : ''
+    })
+  } catch (e) {
+    if (e?.name === 'AbortError') return
+
+    error.value = e?.message || 'Extraction failed. Please try again.'
+    errorCode.value = e?.errorCode || ''
+    phase.value = 'error'
+
+    // Preserve the existing manual-transcript fallback behaviour.
+    if (e?.needsTranscript || String(e?.message || '').toLowerCase().includes('transcript')) {
       needsManualTranscript.value = true
     }
   } finally {
     loading.value = false
+    controller = null
   }
 }
 
+onBeforeUnmount(() => {
+  if (controller) controller.abort()
+})
+
+/**
+ * The catalog with each entry resolved against the shared library. The original
+ * `videos` import is never mutated - this produces new objects - so the research
+ * data stays intact while the UI shows the active result.
+ */
+const resolvedVideos = computed(() => resolveCatalog(videos))
+
 const filteredVideos = computed(() => {
   const q = searchQuery.value.toLowerCase().trim()
-  if (!q) return videos
-  return videos.filter(v =>
+  if (!q) return resolvedVideos.value
+  // Search indexes the ACTIVE components, so a part found only by a newer
+  // extraction is still discoverable.
+  return resolvedVideos.value.filter(v =>
     v.title.toLowerCase().includes(q) ||
     v.tags.some(t => t.toLowerCase().includes(q)) ||
     v.components.some(c => c.name.toLowerCase().includes(q)) ||
     v.creator.toLowerCase().includes(q)
   )
+})
+
+// One batched, read-only lookup for the whole catalog.
+onMounted(() => {
+  ensureActiveResults(videos.map(v => v.youtubeId))
 })
 
 function filterVideos() {
@@ -198,6 +366,11 @@ function filterVideos() {
 
 .extract-input:focus {
   border-color: var(--color-accent);
+}
+
+.extract-input:disabled {
+  background: var(--color-surface-hover);
+  color: var(--color-text-muted);
 }
 
 .extract-input::placeholder {
@@ -267,79 +440,70 @@ function filterVideos() {
 
 .extract-results {
   margin-top: var(--space-md);
-  padding: 12px 16px;
-  font-size: var(--font-size-sm);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-}
-
-.extract-results__title {
-  font-size: var(--font-size-base);
-  font-weight: 700;
-  margin-bottom: var(--space-sm);
-  color: var(--color-text-primary);
-}
-
-.extract-results {
-  margin-top: var(--space-md);
   padding: 16px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   background: var(--color-surface);
 }
 
+.extract-results__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-sm);
+}
+
 .extract-results__title {
   font-size: var(--font-size-base);
   font-weight: 600;
-  margin-bottom: var(--space-md);
   color: var(--color-text-primary);
 }
 
-.extract-results__table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: var(--font-size-sm);
-}
-
-.extract-results__table th {
-  text-align: left;
-  padding: 10px 8px;
+.extract-results__note {
   font-size: var(--font-size-xs);
-  font-weight: 600;
   color: var(--color-text-muted);
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--color-border);
+  margin-bottom: var(--space-md);
 }
 
-.extract-results__table td {
-  padding: 10px 8px;
-  color: var(--color-text-primary);
-  border-bottom: 1px solid var(--color-border-light);
-  font-weight: 400;
+.extract-results__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-lg);
+  margin-top: var(--space-md);
 }
 
-.extract-results__table tr:last-child td {
-  border-bottom: none;
+.extract-results__link {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--color-accent);
 }
 
-.status-badge {
+.btn {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
-  border-radius: 999px;
+  gap: 6px;
+  padding: 6px 14px;
   font-size: var(--font-size-xs);
-  font-weight: 500;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
 }
 
-.status-badge--used {
-  color: var(--color-success);
-  background: #eaf7ee;
+.btn--ghost:hover {
+  color: var(--color-text-primary);
+  background: var(--color-surface-hover);
 }
 
-.status-badge--alt {
-  color: var(--color-warning-text);
-  background: var(--color-warning-bg);
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
+
 .video-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -376,6 +540,10 @@ function filterVideos() {
 
   .home__section {
     padding: var(--space-md);
+  }
+
+  .extract-results__header {
+    flex-direction: column;
   }
 }
 </style>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>IoTutorMine</title>
+    <script>
+      // GitHub Pages has no server-side rewrite, so a direct request to a deep
+      // route (a refresh, a bookmark, or a shared link) is answered with this
+      // 404 page. Encode the requested path into a query string and bounce to
+      // the app root; index.html restores the real URL before Vue Router boots,
+      // so history.back() still works.
+      //
+      // pathSegmentsToKeep = 1 because the site is published under /IoTutorMine/.
+      (function () {
+        var pathSegmentsToKeep = 1;
+        var l = window.location;
+
+        l.replace(
+          l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
+          l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
+          l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
+          (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+          l.hash
+        );
+      })();
+    </script>
+  </head>
+  <body></body>
+</html>

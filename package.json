@@ -1,0 +1,13 @@
+{
+  "name": "iotutormine-api",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Vercel serverless API and shared extraction store for IoTutorMine. The Vue frontend lives in ./frontend and has its own package.json. Requires Node 20.19+ for the test runner; the deployed runtime is set in Vercel project settings (currently 24.x), deliberately NOT pinned here via engines.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\"",
+    "test:integration": "node scripts/run-integration-tests.mjs",
+    "supabase:start": "supabase start",
+    "supabase:stop": "supabase stop"
+  }
+}

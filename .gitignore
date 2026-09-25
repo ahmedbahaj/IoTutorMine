@@ -21,3 +21,16 @@ uv.lock
 *.egg-info/
 build/
 dist/
+
+# Local environment files (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+
+# Vercel CLI local link + downloaded OIDC token.
+# Note: .env / .env.* are already covered above, with .env.example negated -
+# do not re-add a bare `.env*` here or it will re-ignore .env.example.
+.vercel

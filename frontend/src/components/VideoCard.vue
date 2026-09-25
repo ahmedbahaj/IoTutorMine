@@ -13,6 +13,13 @@
 
       <div class="video-card__meta">
         <span class="video-card__creator">{{ video.creator }}</span>
+        <span
+          v-if="video.hasNewerExtraction"
+          class="video-card__source"
+          title="Showing the latest AI extraction for this video"
+        >
+          Latest AI Extraction
+        </span>
       </div>
 
       <div class="video-card__components">
@@ -113,6 +120,16 @@ defineProps({
 
 .video-card__creator {
   font-weight: 500;
+}
+
+.video-card__source {
+  padding: 1px 7px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  background: var(--color-accent-light);
+  border-radius: 100px;
+  white-space: nowrap;
 }
 
 .video-card__comments {
